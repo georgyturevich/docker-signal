@@ -43,20 +43,35 @@ func PulseEvent(handle syscall.Handle) (err error) {
 
 func main() {
 	var pid int
-	flag.IntVar(&pid, "pid", -1, "PID of docker daemon to signal to dump stacks")
+	var reload bool
+	flag.IntVar(&pid, "pid", -1, "PID of docker daemon to signal to dump stacks or reload configuration")
+	flag.BoolVar(&reload, "reload", false, "Ask docker daemon to reload configuration instead of dump stacks")
 	flag.Parse()
 	if pid == -1 {
 		fmt.Println("Error: pid must be supplied")
 		return
 	}
-	ev := "Global\\docker-daemon-" + fmt.Sprint(pid)
-	h2, _ := OpenEvent(EVENT_MODIFY_STATUS, false, ev)
+	var ev string
+	if reload {
+		ev = "Global\\docker-daemon-config-" + fmt.Sprint(pid)
+	} else {
+		ev = "Global\\docker-daemon-" + fmt.Sprint(pid)
+	}
+	h2, err := OpenEvent(EVENT_MODIFY_STATUS, false, ev)
 	if h2 == 0 {
-		fmt.Printf("Could not open event. Check PID %d is correct and the daemon is running.\n", pid)
+		fmt.Printf("Could not open event %s. Check PID %d is correct and the daemon is running.\n", ev, pid)
+		if err != nil {
+			fmt.Printf("Err: %s\n", err.Error())
+		}
 		return
 	}
 	PulseEvent(h2)
-	fmt.Println("Daemon signalled successfully. Examine its output for stacks")
+
+	if reload {
+		fmt.Println("Daemon signalled successfully.")
+	} else {
+		fmt.Println("Daemon signalled successfully. Examine its output for stacks")
+	}
 }
 
 var temp unsafe.Pointer
